@@ -99,7 +99,7 @@ app.post('/api/orders', async (req, res) => {
   try {
     const { customerId, customerName, items, palmDeviceId } = req.body;
     
-    if (!palmDeviceId) {
+    if (!palmDeviceId || palmDeviceId.trim() === '') {
       return res.status(400).json({ error: 'Device selection required' });
     }
     
