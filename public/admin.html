@@ -8,23 +8,20 @@
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen">
-        <!-- Header -->
         <header class="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
             <h1 class="text-3xl font-bold">🌴 Palm Payment Admin</h1>
             <p class="text-purple-200">Manage Products, Customers & Orders</p>
         </header>
 
-        <!-- Tabs -->
         <div class="max-w-7xl mx-auto mt-8 px-4">
-            <div class="flex space-x-4 border-b border-gray-300">
+            <div class="flex space-x-4 border-b border-gray-300 mb-8">
                 <button onclick="showTab('products')" id="tab-products" class="px-6 py-3 font-semibold border-b-2 border-purple-600 text-purple-600">Products</button>
                 <button onclick="showTab('customers')" id="tab-customers" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Customers</button>
                 <button onclick="showTab('orders')" id="tab-orders" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Orders</button>
                 <button onclick="showTab('create-order')" id="tab-create-order" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Create Order</button>
             </div>
 
-            <!-- Products Tab -->
-            <div id="content-products" class="mt-8">
+            <div id="content-products" class="tab-content">
                 <div class="bg-white rounded-lg shadow p-6 mb-6">
                     <h2 class="text-2xl font-bold mb-4">Add Product</h2>
                     <form onsubmit="createProduct(event)" class="grid grid-cols-2 gap-4">
@@ -38,12 +35,11 @@
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-2xl font-bold mb-4">Products</h2>
-                    <div id="products-list" class="grid grid-cols-3 gap-4"></div>
+                    <div id="products-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
                 </div>
             </div>
 
-            <!-- Customers Tab -->
-            <div id="content-customers" class="mt-8 hidden">
+            <div id="content-customers" class="tab-content hidden">
                 <div class="bg-white rounded-lg shadow p-6 mb-6">
                     <h2 class="text-2xl font-bold mb-4">Add Customer</h2>
                     <form onsubmit="createCustomer(event)" class="grid grid-cols-2 gap-4">
@@ -60,23 +56,24 @@
                 </div>
             </div>
 
-            <!-- Orders Tab -->
-            <div id="content-orders" class="mt-8 hidden">
+            <div id="content-orders" class="tab-content hidden">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-2xl font-bold mb-4">Orders</h2>
+                    <div class="mb-4">
+                        <button onclick="loadOrders()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Refresh Orders</button>
+                    </div>
                     <div id="orders-list"></div>
                 </div>
             </div>
 
-            <!-- Create Order Tab -->
-            <div id="content-create-order" class="mt-8 hidden">
+            <div id="content-create-order" class="tab-content hidden">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-2xl font-bold mb-4">Create New Order</h2>
                     <form onsubmit="createOrder(event)">
                         <div class="mb-4">
-                            <label class="block font-semibold mb-2">Customer</label>
-                            <select id="order-customer" class="border rounded px-4 py-2 w-full" required>
-                                <option value="">Select Customer</option>
+                            <label class="block font-semibold mb-2">Customer (Optional)</label>
+                            <select id="order-customer" class="border rounded px-4 py-2 w-full">
+                                <option value="">Walk-in Customer</option>
                             </select>
                         </div>
                         <div class="mb-4">
@@ -86,7 +83,7 @@
                         <div class="mb-4">
                             <p class="text-xl font-bold">Total: $<span id="order-total">0.00</span></p>
                         </div>
-                        <button type="submit" class="bg-green-600 text-white px-6 py-3 rounded font-semibold hover:bg-green-700">Create Order</button>
+                        <button type="submit" class="bg-green-600 text-white px-6 py-3 rounded font-semibold hover:bg-green-700">Create Order → Send to Palm Device</button>
                     </form>
                 </div>
             </div>
@@ -100,14 +97,15 @@
         let selectedItems = [];
 
         function showTab(tab) {
-            ['products', 'customers', 'orders', 'create-order'].forEach(t => {
-                document.getElementById(`content-${t}`).classList.add('hidden');
-                document.getElementById(`tab-${t}`).classList.remove('border-purple-600', 'text-purple-600');
-                document.getElementById(`tab-${t}`).classList.add('text-gray-600');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => {
+                el.classList.remove('border-purple-600', 'text-purple-600');
+                el.classList.add('text-gray-600');
             });
-            document.getElementById(`content-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-${tab}`).classList.add('border-purple-600', 'text-purple-600');
-            document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+            
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('border-purple-600', 'text-purple-600');
+            document.getElementById('tab-' + tab).classList.remove('text-gray-600');
 
             if (tab === 'products') loadProducts();
             if (tab === 'customers') loadCustomers();
@@ -124,17 +122,20 @@
                 stock: parseInt(document.getElementById('product-stock').value),
                 description: document.getElementById('product-description').value
             };
-            await fetch(`${API_URL}/api/products`, {
+            const res = await fetch(API_URL + '/api/products', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
-            e.target.reset();
-            loadProducts();
+            if (res.ok) {
+                e.target.reset();
+                loadProducts();
+                alert('Product created!');
+            }
         }
 
         async function loadProducts() {
-            const res = await fetch(`${API_URL}/api/products`);
+            const res = await fetch(API_URL + '/api/products');
             const data = await res.json();
             products = data.products;
             const html = products.map(p => `
@@ -157,17 +158,20 @@
                 phone: document.getElementById('customer-phone').value,
                 palmId: document.getElementById('customer-palmid').value
             };
-            await fetch(`${API_URL}/api/customers`, {
+            const res = await fetch(API_URL + '/api/customers', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
-            e.target.reset();
-            loadCustomers();
+            if (res.ok) {
+                e.target.reset();
+                loadCustomers();
+                alert('Customer created!');
+            }
         }
 
         async function loadCustomers() {
-            const res = await fetch(`${API_URL}/api/customers`);
+            const res = await fetch(API_URL + '/api/customers');
             const data = await res.json();
             customers = data.customers;
             const html = customers.map(c => `
@@ -181,17 +185,21 @@
         }
 
         async function loadOrders() {
-            const res = await fetch(`${API_URL}/api/orders`);
+            const res = await fetch(API_URL + '/api/orders');
             const data = await res.json();
             const html = data.orders.map(o => `
-                <div class="border rounded p-4 mb-4 ${o.status === 'completed' ? 'bg-green-50' : 'bg-yellow-50'}">
+                <div class="border rounded p-4 mb-4 ${o.status === 'completed' ? 'bg-green-50' : o.status === 'pending' ? 'bg-yellow-50' : 'bg-gray-50'}">
                     <div class="flex justify-between items-center mb-2">
-                        <p class="font-bold">Order ${o.id.substr(0, 8)}</p>
-                        <span class="px-3 py-1 rounded text-sm font-semibold ${o.status === 'completed' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}">${o.status}</span>
+                        <p class="font-bold">Order #${o.id.substring(0, 8)}</p>
+                        <span class="px-3 py-1 rounded text-sm font-semibold ${
+                            o.status === 'completed' ? 'bg-green-200 text-green-800' : 
+                            o.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
+                            'bg-gray-200 text-gray-800'
+                        }">${o.status.toUpperCase()}</span>
                     </div>
-                    <p class="text-sm text-gray-600">Customer: ${o.customerName || 'Unknown'}</p>
-                    <p class="text-sm text-gray-600">Items: ${o.items.length}</p>
-                    <p class="text-lg font-bold text-purple-600">Total: $${o.totalAmount}</p>
+                    <p class="text-sm text-gray-600">Customer: ${o.customerName || 'Walk-in'}</p>
+                    <p class="text-sm text-gray-600 mb-2">Items: ${o.items.map(i => i.product.name + ' x' + i.quantity).join(', ')}</p>
+                    <p class="text-lg font-bold text-purple-600">Total: $${parseFloat(o.totalAmount).toFixed(2)}</p>
                     <p class="text-xs text-gray-500">${new Date(o.createdAt).toLocaleString()}</p>
                 </div>
             `).join('');
@@ -203,26 +211,27 @@
             await loadCustomers();
             
             const customerSelect = document.getElementById('order-customer');
-            customerSelect.innerHTML = '<option value="">Select Customer</option>' + 
+            customerSelect.innerHTML = '<option value="">Walk-in Customer</option>' + 
                 customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
             
             const productsHtml = products.map(p => `
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" id="prod-${p.id}" data-id="${p.id}" data-price="${p.price}" data-name="${p.name}" onchange="updateOrderTotal()">
-                    <label for="prod-${p.id}" class="flex-1">${p.name} - $${p.price}</label>
+                <div class="flex items-center space-x-2 border-b pb-2">
+                    <input type="checkbox" id="prod-${p.id}" data-id="${p.id}" data-price="${p.price}" data-name="${p.name}" onchange="updateOrderTotal()" class="w-5 h-5">
+                    <label for="prod-${p.id}" class="flex-1 font-semibold">${p.name} - $${p.price}</label>
+                    <span class="text-sm text-gray-500">Qty:</span>
                     <input type="number" id="qty-${p.id}" min="1" value="1" class="border rounded px-2 py-1 w-16" onchange="updateOrderTotal()">
                 </div>
             `).join('');
-            document.getElementById('order-products').innerHTML = productsHtml;
+            document.getElementById('order-products').innerHTML = productsHtml || '<p class="text-gray-500">No products available</p>';
         }
 
         function updateOrderTotal() {
             let total = 0;
             selectedItems = [];
             products.forEach(p => {
-                const checkbox = document.getElementById(`prod-${p.id}`);
+                const checkbox = document.getElementById('prod-' + p.id);
                 if (checkbox && checkbox.checked) {
-                    const qty = parseInt(document.getElementById(`qty-${p.id}`).value);
+                    const qty = parseInt(document.getElementById('qty-' + p.id).value);
                     total += parseFloat(p.price) * qty;
                     selectedItems.push({
                         productId: p.id,
@@ -240,20 +249,25 @@
                 alert('Please select at least one product');
                 return;
             }
-            const customerId = document.getElementById('order-customer').value;
-            const customerName = customers.find(c => c.id === customerId)?.name || 'Walk-in';
+            const customerId = document.getElementById('order-customer').value || null;
+            const customerName = customerId ? customers.find(c => c.id === customerId)?.name : 'Walk-in Customer';
             
-            await fetch(`${API_URL}/api/orders`, {
+            const res = await fetch(API_URL + '/api/orders', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    customerId: customerId || null,
+                    customerId,
                     customerName,
                     items: selectedItems
                 })
             });
-            alert('Order created! Customer can now pay with palm scan.');
-            showTab('orders');
+            
+            if (res.ok) {
+                alert('✅ Order created! Customer can now scan palm to pay on the device.');
+                showTab('orders');
+            } else {
+                alert('Failed to create order');
+            }
         }
 
         // Initial load
