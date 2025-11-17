@@ -154,6 +154,24 @@ app.get('/api/palm/devices', async (req, res) => {
   }
 });
 
+// Update device name
+app.patch('/api/palm/devices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, location } = req.body;
+    
+    const device = await prisma.palmDevice.update({
+      where: { id },
+      data: { name, location }
+    });
+    
+    res.json({ device });
+  } catch (error) {
+    console.error('Error updating device:', error);
+    res.status(500).json({ error: 'Failed to update device' });
+  }
+});
+
 // Get next pending order
 app.get('/api/palm/next-order', async (req, res) => {
   try {
