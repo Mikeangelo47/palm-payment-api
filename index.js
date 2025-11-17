@@ -220,3 +220,6 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Palm Payment API running on port ${PORT}`);
 });
+
+// Serve static files
+app.use(express.static('public'));
