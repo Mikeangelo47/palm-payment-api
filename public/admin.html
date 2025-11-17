@@ -71,9 +71,9 @@
                     <h2 class="text-2xl font-bold mb-4">Create New Order</h2>
                     <form onsubmit="createOrder(event)">
                         <div class="mb-4">
-                            <label class="block font-semibold mb-2 text-red-600">⚠️ Select Palm Device (Required)</label>
-                            <select id="order-device" class="border-2 border-red-300 rounded px-4 py-2 w-full" required>
-                                <option value="">-- Select Device --</option>
+                            <label class="block font-semibold mb-2">Palm Device (Optional)</label>
+                            <select id="order-device" class="border rounded px-4 py-2 w-full">
+                                <option value="">Any Available Device</option>
                             </select>
                         </div>
                         <div class="mb-4">
@@ -265,18 +265,13 @@
         async function createOrder(e) {
             e.preventDefault();
             
-            const palmDeviceId = document.getElementById('order-device').value;
-            if (!palmDeviceId) {
-                alert('⚠️ Please select a palm device!');
-                return;
-            }
-            
             if (selectedItems.length === 0) {
                 alert('Please select at least one product');
                 return;
             }
             const customerId = document.getElementById('order-customer').value || null;
             const customerName = customerId ? customers.find(c => c.id === customerId)?.name : 'Walk-in Customer';
+            const palmDeviceId = document.getElementById('order-device').value || null;
             
             const res = await fetch(API_URL + '/api/orders', {
                 method: 'POST',

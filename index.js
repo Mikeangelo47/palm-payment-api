@@ -99,10 +99,6 @@ app.post('/api/orders', async (req, res) => {
   try {
     const { customerId, customerName, items, palmDeviceId } = req.body;
     
-    if (!palmDeviceId || palmDeviceId.trim() === '') {
-      return res.status(400).json({ error: 'Device selection required' });
-    }
-    
     const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     
     const order = await prisma.order.create({
@@ -175,26 +171,9 @@ app.patch('/api/palm/devices/:id', async (req, res) => {
 // Get next pending order
 app.get('/api/palm/next-order', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing authorization token' });
-    }
-
-    const token = authHeader.substring(7);
-    const device = await prisma.palmDevice.findUnique({
-      where: { apiToken: token }
-    });
-
-    if (!device) {
-      return res.status(401).json({ error: 'Invalid device token' });
-    }
-
-    // Get next pending order for THIS device
+    // Any device can get any pending order (first-come-first-served)
     const order = await prisma.order.findFirst({
-      where: { 
-        status: 'pending',
-        palmDeviceId: device.id
-      },
+      where: { status: 'pending' },
       include: {
         items: { include: { product: true } },
         customer: true
