@@ -97,7 +97,12 @@ app.get('/api/orders', async (req, res) => {
 // Create order
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customerId, customerName, items } = req.body;
+    const { customerId, customerName, items, palmDeviceId } = req.body;
+    
+    if (!palmDeviceId) {
+      return res.status(400).json({ error: 'Device selection required' });
+    }
+    
     const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     
     const order = await prisma.order.create({
@@ -105,6 +110,7 @@ app.post('/api/orders', async (req, res) => {
         customerId,
         customerName,
         totalAmount,
+        palmDeviceId,
         items: {
           create: items.map(item => ({
             productId: item.productId,
@@ -114,7 +120,8 @@ app.post('/api/orders', async (req, res) => {
         }
       },
       include: {
-        items: { include: { product: true } }
+        items: { include: { product: true } },
+        palmDevice: true
       }
     });
     res.json({ order });
@@ -126,11 +133,50 @@ app.post('/api/orders', async (req, res) => {
 
 // ============ PALM DEVICE ENDPOINTS ============
 
+// Get all palm devices
+app.get('/api/palm/devices', async (req, res) => {
+  try {
+    const devices = await prisma.palmDevice.findMany({
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        active: true,
+        lastSeenAt: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ devices });
+  } catch (error) {
+    console.error('Error fetching devices:', error);
+    res.status(500).json({ error: 'Failed to fetch devices' });
+  }
+});
+
 // Get next pending order
 app.get('/api/palm/next-order', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing authorization token' });
+    }
+
+    const token = authHeader.substring(7);
+    const device = await prisma.palmDevice.findUnique({
+      where: { apiToken: token }
+    });
+
+    if (!device) {
+      return res.status(401).json({ error: 'Invalid device token' });
+    }
+
+    // Get next pending order for THIS device
     const order = await prisma.order.findFirst({
-      where: { status: 'pending' },
+      where: { 
+        status: 'pending',
+        palmDeviceId: device.id
+      },
       include: {
         items: { include: { product: true } },
         customer: true
