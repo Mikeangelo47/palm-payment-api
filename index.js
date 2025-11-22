@@ -76,8 +76,19 @@ app.post('/api/customers', async (req, res) => {
 // Get all orders
 app.get('/api/orders', async (req, res) => {
   try {
-    const { status } = req.query;
-    const where = status ? { status } : {};
+    const { status, customerName } = req.query;
+    const where = {};
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    if (customerName) {
+      where.customerName = {
+        contains: customerName,
+        mode: 'insensitive'
+      };
+    }
     
     const orders = await prisma.order.findMany({
       where,
