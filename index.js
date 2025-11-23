@@ -202,15 +202,16 @@ app.get('/api/palm/next-order', async (req, res) => {
 app.post('/api/palm/complete-order/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, customerId, customerName } = req.body;
+    const { status, customerName } = req.body;
     
+    // Only update status, completedAt, and customerName
+    // Don't update customerId as it causes foreign key constraint errors
     const order = await prisma.order.update({
       where: { id },
       data: {
         status,
         completedAt: new Date(),
-        customerId,
-        customerName
+        ...(customerName && { customerName })
       }
     });
     res.json({ order, message: 'Order completed' });
