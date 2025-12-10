@@ -268,6 +268,119 @@ app.get('/api/transactions/:customerId', async (req, res) => {
   }
 });
 
+// ============ ACCESS CONTROL ENDPOINTS ============
+
+// Get all users (for access control dashboard)
+app.get('/api/v1/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        createdAt: true
+      },
+      orderBy: { displayName: 'asc' }
+    });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get user authentication logs
+app.get('/api/v1/users/:userId/auth-logs', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const logs = await prisma.authenticationLog.findMany({
+      where: { userId },
+      orderBy: { authenticatedAt: 'desc' },
+      take: limit,
+      skip: offset
+    });
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching auth logs:', error);
+    res.status(500).json({ error: 'Failed to fetch authentication logs' });
+  }
+});
+
+// Get all device authentication logs
+app.get('/api/v1/palm/device-logs', async (req, res) => {
+  try {
+    const logs = await prisma.deviceAuthenticationLog.findMany({
+      include: {
+        palmDevice: {
+          select: {
+            name: true,
+            location: true
+          }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: 1000
+    });
+    
+    const formattedLogs = logs.map(log => ({
+      id: log.id,
+      deviceType: log.deviceType,
+      location: log.palmDevice?.location || log.location,
+      success: log.success,
+      reason: log.reason,
+      timestamp: log.timestamp,
+      palmDeviceId: log.palmDeviceId,
+      deviceName: log.palmDevice?.name
+    }));
+    
+    res.json(formattedLogs);
+  } catch (error) {
+    console.error('Error fetching device logs:', error);
+    res.status(500).json({ error: 'Failed to fetch device logs' });
+  }
+});
+
+// Log authentication attempt from palm device
+app.post('/api/palm-devices/auth-log', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const apiToken = authHeader.substring(7);
+    const device = await prisma.palmDevice.findUnique({ 
+      where: { apiToken } 
+    });
+    
+    if (!device) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { deviceType, location, success, reason } = req.body;
+    
+    const authLog = await prisma.deviceAuthenticationLog.create({
+      data: {
+        palmDeviceId: device.id,
+        deviceType: deviceType || 'palm',
+        location: location || 'Unknown',
+        success: success || false,
+        reason: reason || 'Authentication failed',
+        timestamp: new Date()
+      }
+    });
+
+    res.json({ success: true, log: authLog });
+  } catch (error) {
+    console.error('Error logging auth attempt:', error);
+    res.status(500).json({ error: 'Failed to log authentication attempt' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
