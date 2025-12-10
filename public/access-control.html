@@ -568,7 +568,9 @@
         
         function categorizeByTime(timestamp) {
             const date = new Date(timestamp);
-            const hour = date.getHours();
+            // Convert to Kuwait time (UTC+3)
+            const kuwaitTime = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kuwait' }));
+            const hour = kuwaitTime.getHours();
             
             if (hour < TIME_CONFIG.onTimeThreshold) {
                 return 'on-time';
@@ -649,6 +651,7 @@
         
         function formatDateTime(date) {
             return date.toLocaleString('en-US', {
+                timeZone: 'Asia/Kuwait',
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
