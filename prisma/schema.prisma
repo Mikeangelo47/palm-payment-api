@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,18 +7,128 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Customer {
+model User {
+  id               String   @id @default(uuid())
+  email            String?  @unique
+  displayName      String   @map("display_name")
+  phoneNumber      String?  @map("phone_number")
+  paymentMethod    String?  @map("payment_method")
+  profilePictureUrl String? @map("profile_picture_url") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  palmTemplates      PalmTemplate[]
+  enrollments        Enrollment[]
+  devices            Device[]
+  apiTokens          ApiToken[]
+  authenticationLogs AuthenticationLog[]
+  cards              Card[]
+  orders             Order[]
+  
+  @@map("users")
+}
+
+model PalmTemplate {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  sdkVendor      String   @default("veinshine") @map("sdk_vendor")
+  featureVersion String   @default("1.0") @map("feature_version")
+  
+  leftRgbFeature  String?  @map("left_rgb_feature") @db.Text
+  leftIrFeature   String?  @map("left_ir_feature") @db.Text
+  rightRgbFeature String?  @map("right_rgb_feature") @db.Text
+  rightIrFeature  String?  @map("right_ir_feature") @db.Text
+  
+  active         Boolean  @default(true)
+  enrolledAt     DateTime @default(now()) @map("enrolled_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("palm_templates")
+}
+
+model Device {
   id          String   @id @default(uuid())
+  userId      String   @map("user_id")
   name        String
-  email       String?  @unique
-  phone       String?
-  palmId      String?  @unique @map("palm_id")
+  platform    String
+  publicKey   String?  @map("public_key") @db.Text
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
   createdAt   DateTime @default(now()) @map("created_at")
   
-  orders      Order[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
   
-  @@map("customers")
+  @@index([userId])
+  @@map("devices")
 }
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  deviceId  String   @map("device_id")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([deviceId])
+  @@map("enrollments")
+}
+
+model ApiToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  scope      String   @default("palm:verify")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("api_tokens")
+}
+
+model AuthenticationLog {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  deviceType   String   @map("device_type")
+  location     String?
+  success      Boolean  @default(true)
+  authenticatedAt DateTime @default(now()) @map("authenticated_at")
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([authenticatedAt])
+  @@map("authentication_logs")
+}
+
+model Card {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  type        String
+  name        String
+  cardNumber  String   @map("card_number")
+  barcodeData String?  @map("barcode_data") @db.Text
+  color       String   @default("#3B82F6")
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("cards")
+}
+
+// NEW MODELS FOR STORE SYSTEM
 
 model Product {
   id          String   @id @default(uuid())
@@ -43,17 +147,17 @@ model Product {
 }
 
 model Order {
-  id            String    @id @default(uuid())
-  customerId    String?   @map("customer_id")
-  customerName  String?   @map("customer_name")
-  status        String    @default("pending") // pending, completed, cancelled
-  totalAmount   Decimal   @db.Decimal(10, 2) @map("total_amount")
-  palmDeviceId  String?   @map("palm_device_id")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  customerId    String?  @map("customer_id")
+  customerName  String?  @map("customer_name")
+  status        String   @default("pending") // pending, completed, cancelled
+  totalAmount   Decimal  @db.Decimal(10, 2) @map("total_amount")
+  palmDeviceId  String?  @map("palm_device_id")
+  createdAt     DateTime @default(now()) @map("created_at")
   completedAt   DateTime? @map("completed_at")
   
-  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  palmDevice    PalmDevice?  @relation(fields: [palmDeviceId], references: [id], onDelete: SetNull)
+  customer      User?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  palmDevice    PalmDevice? @relation(fields: [palmDeviceId], references: [id], onDelete: SetNull)
   items         OrderItem[]
   
   @@index([customerId])
@@ -88,7 +192,24 @@ model PalmDevice {
   createdAt   DateTime @default(now()) @map("created_at")
   
   orders      Order[]
+  deviceAuthLogs DeviceAuthenticationLog[]
   
   @@index([apiToken])
   @@map("palm_devices")
+}
+
+model DeviceAuthenticationLog {
+  id           String   @id @default(uuid())
+  palmDeviceId String   @map("palm_device_id")
+  deviceType   String   @map("device_type")
+  location     String?
+  success      Boolean  @default(false)
+  reason       String?
+  timestamp    DateTime @default(now())
+  
+  palmDevice   PalmDevice @relation(fields: [palmDeviceId], references: [id], onDelete: Cascade)
+  
+  @@index([palmDeviceId])
+  @@index([timestamp])
+  @@map("device_authentication_logs")
 }
