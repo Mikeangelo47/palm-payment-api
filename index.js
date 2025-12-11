@@ -475,6 +475,27 @@ app.get('/api/v1/users/:userId/cards', async (req, res) => {
   }
 });
 
+// Get user authentication history (scans)
+app.get('/api/v1/users/:userId/auth-history', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    const logs = await prisma.authenticationLog.findMany({
+      where: { userId },
+      orderBy: { authenticatedAt: 'desc' },
+      take: limit,
+      skip: offset
+    });
+    
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching auth history:', error);
+    res.status(500).json({ error: 'Failed to fetch authentication history' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
