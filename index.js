@@ -459,6 +459,48 @@ app.get('/api/v1/palm/template/:userId', async (req, res) => {
   }
 });
 
+// Verify palm - returns all templates for client-side matching
+app.post('/api/v1/palm/verify', async (req, res) => {
+  try {
+    const { sdkVendor, featureVersion } = req.body;
+    
+    // Get all active templates
+    const templates = await prisma.palmTemplate.findMany({
+      where: {
+        active: true,
+        sdkVendor: sdkVendor || 'veinshine',
+        featureVersion: featureVersion || '1.0'
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true
+          }
+        }
+      }
+    });
+    
+    res.json({
+      success: true,
+      templateCount: templates.length,
+      templates: templates.map(t => ({
+        id: t.id,
+        userId: t.userId,
+        user: t.user,
+        leftRgbFeature: t.leftRgbFeature,
+        leftIrFeature: t.leftIrFeature,
+        rightRgbFeature: t.rightRgbFeature,
+        rightIrFeature: t.rightIrFeature
+      }))
+    });
+  } catch (error) {
+    console.error('Palm verification error:', error);
+    res.status(500).json({ success: false, error: 'Palm verification failed' });
+  }
+});
+
 // Get user cards
 app.get('/api/v1/users/:userId/cards', async (req, res) => {
   try {
