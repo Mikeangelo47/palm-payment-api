@@ -517,6 +517,24 @@ app.get('/api/v1/users/:userId/cards', async (req, res) => {
   }
 });
 
+// Delete user and all related data
+app.delete('/api/v1/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Delete in order: cards, palm templates, auth logs, then user
+    await prisma.card.deleteMany({ where: { userId } });
+    await prisma.palmTemplate.deleteMany({ where: { userId } });
+    await prisma.authenticationLog.deleteMany({ where: { userId } });
+    await prisma.user.delete({ where: { id: userId } });
+    
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 // Get user authentication history (scans)
 app.get('/api/v1/users/:userId/auth-history', async (req, res) => {
   try {

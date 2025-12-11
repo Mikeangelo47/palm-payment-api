@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palm Payment Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <header class="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
+            <h1 class="text-3xl font-bold">🌴 Palm Payment Admin</h1>
+            <p class="text-purple-200">Manage Products, Customers & Orders</p>
+        </header>
+
+        <div class="max-w-7xl mx-auto mt-8 px-4">
+            <div class="flex space-x-4 border-b border-gray-300 mb-8">
+                <button onclick="showTab('products')" id="tab-products" class="px-6 py-3 font-semibold border-b-2 border-purple-600 text-purple-600">Products</button>
+                <button onclick="showTab('customers')" id="tab-customers" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Customers</button>
+                <button onclick="showTab('orders')" id="tab-orders" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Orders</button>
+                <button onclick="showTab('create-order')" id="tab-create-order" class="px-6 py-3 font-semibold text-gray-600 hover:text-purple-600">Create Order</button>
+            </div>
+
+            <div id="content-products" class="tab-content">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-4">Add Product</h2>
+                    <form onsubmit="createProduct(event)" class="grid grid-cols-2 gap-4">
+                        <input type="text" id="product-name" placeholder="Product Name" class="border rounded px-4 py-2" required>
+                        <input type="number" step="0.01" id="product-price" placeholder="Price" class="border rounded px-4 py-2" required>
+                        <input type="text" id="product-image" placeholder="Image URL" class="border rounded px-4 py-2">
+                        <input type="number" id="product-stock" placeholder="Stock" class="border rounded px-4 py-2" required>
+                        <textarea id="product-description" placeholder="Description" class="border rounded px-4 py-2 col-span-2" rows="2"></textarea>
+                        <button type="submit" class="col-span-2 bg-purple-600 text-white px-6 py-3 rounded font-semibold hover:bg-purple-700">Add Product</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4">Products</h2>
+                    <div id="products-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+
+            <div id="content-customers" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-4">Add Customer</h2>
+                    <form onsubmit="createCustomer(event)" class="grid grid-cols-2 gap-4">
+                        <input type="text" id="customer-name" placeholder="Customer Name" class="border rounded px-4 py-2" required>
+                        <input type="email" id="customer-email" placeholder="Email" class="border rounded px-4 py-2">
+                        <input type="tel" id="customer-phone" placeholder="Phone" class="border rounded px-4 py-2">
+                        <input type="text" id="customer-palmid" placeholder="Palm ID (optional)" class="border rounded px-4 py-2">
+                        <button type="submit" class="col-span-2 bg-blue-600 text-white px-6 py-3 rounded font-semibold hover:bg-blue-700">Add Customer</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4">Customers</h2>
+                    <div id="customers-list"></div>
+                </div>
+            </div>
+
+            <div id="content-orders" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4">Orders</h2>
+                    <div class="mb-4">
+                        <button onclick="loadOrders()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Refresh Orders</button>
+                    </div>
+                    <div id="orders-list"></div>
+                </div>
+            </div>
+
+            <div id="content-create-order" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4">Create New Order</h2>
+                    <form onsubmit="createOrder(event)">
+                        <div class="mb-4">
+                            <label class="block font-semibold mb-2">Palm Device (Optional)</label>
+                            <select id="order-device" class="border rounded px-4 py-2 w-full">
+                                <option value="">Any Available Device</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block font-semibold mb-2">Customer (Optional)</label>
+                            <select id="order-customer" class="border rounded px-4 py-2 w-full">
+                                <option value="">Walk-in Customer</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block font-semibold mb-2">Products</label>
+                            <div id="order-products" class="space-y-2"></div>
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-xl font-bold">Total: $<span id="order-total">0.00</span></p>
+                        </div>
+                        <button type="submit" class="bg-green-600 text-white px-6 py-3 rounded font-semibold hover:bg-green-700">Create Order → Send to Palm Device</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let products = [];
+        let customers = [];
+        let devices = [];
+        let selectedItems = [];
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => {
+                el.classList.remove('border-purple-600', 'text-purple-600');
+                el.classList.add('text-gray-600');
+            });
+            
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('border-purple-600', 'text-purple-600');
+            document.getElementById('tab-' + tab).classList.remove('text-gray-600');
+
+            if (tab === 'products') loadProducts();
+            if (tab === 'customers') loadCustomers();
+            if (tab === 'orders') loadOrders();
+            if (tab === 'create-order') loadCreateOrderData();
+        }
+
+        async function createProduct(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('product-name').value,
+                price: parseFloat(document.getElementById('product-price').value),
+                imageUrl: document.getElementById('product-image').value,
+                stock: parseInt(document.getElementById('product-stock').value),
+                description: document.getElementById('product-description').value
+            };
+            const res = await fetch(API_URL + '/api/products', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                e.target.reset();
+                loadProducts();
+                alert('Product created!');
+            }
+        }
+
+        async function loadProducts() {
+            const res = await fetch(API_URL + '/api/products');
+            const data = await res.json();
+            products = data.products;
+            const html = products.map(p => `
+                <div class="border rounded p-4">
+                    <img src="${p.imageUrl || 'https://via.placeholder.com/150'}" class="w-full h-32 object-cover rounded mb-2">
+                    <h3 class="font-bold">${p.name}</h3>
+                    <p class="text-gray-600 text-sm">${p.description || ''}</p>
+                    <p class="text-lg font-bold text-purple-600">$${p.price}</p>
+                    <p class="text-sm text-gray-500">Stock: ${p.stock}</p>
+                </div>
+            `).join('');
+            document.getElementById('products-list').innerHTML = html || '<p class="text-gray-500">No products yet</p>';
+        }
+
+        async function createCustomer(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('customer-name').value,
+                email: document.getElementById('customer-email').value,
+                phone: document.getElementById('customer-phone').value,
+                palmId: document.getElementById('customer-palmid').value
+            };
+            const res = await fetch(API_URL + '/api/customers', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                e.target.reset();
+                loadCustomers();
+                alert('Customer created!');
+            }
+        }
+
+        async function loadCustomers() {
+            const res = await fetch(API_URL + '/api/customers');
+            const data = await res.json();
+            customers = data.customers;
+            const html = customers.map(c => `
+                <div class="border-b py-3">
+                    <p class="font-bold">${c.name}</p>
+                    <p class="text-sm text-gray-600">${c.email || 'No email'} • ${c.phone || 'No phone'}</p>
+                    ${c.palmId ? `<p class="text-xs text-purple-600">Palm ID: ${c.palmId}</p>` : ''}
+                </div>
+            `).join('');
+            document.getElementById('customers-list').innerHTML = html || '<p class="text-gray-500">No customers yet</p>';
+        }
+
+        async function loadOrders() {
+            const res = await fetch(API_URL + '/api/orders');
+            const data = await res.json();
+            const html = data.orders.map(o => `
+                <div class="border rounded p-4 mb-4 ${o.status === 'completed' ? 'bg-green-50' : o.status === 'pending' ? 'bg-yellow-50' : 'bg-gray-50'}">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="font-bold">Order #${o.id.substring(0, 8)}</p>
+                        <span class="px-3 py-1 rounded text-sm font-semibold ${
+                            o.status === 'completed' ? 'bg-green-200 text-green-800' : 
+                            o.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
+                            'bg-gray-200 text-gray-800'
+                        }">${o.status.toUpperCase()}</span>
+                    </div>
+                    <p class="text-sm text-gray-600">Customer: ${o.customerName || 'Walk-in'}</p>
+                    <p class="text-sm text-blue-600 font-semibold">📱 Device: ${o.palmDevice?.name || 'Not assigned'}</p>
+                    <p class="text-sm text-gray-600 mb-2">Items: ${o.items.map(i => i.product.name + ' x' + i.quantity).join(', ')}</p>
+                    <p class="text-lg font-bold text-purple-600">Total: $${parseFloat(o.totalAmount).toFixed(2)}</p>
+                    <p class="text-xs text-gray-500">${new Date(o.createdAt).toLocaleString()}</p>
+                </div>
+            `).join('');
+            document.getElementById('orders-list').innerHTML = html || '<p class="text-gray-500">No orders yet</p>';
+        }
+
+        async function loadCreateOrderData() {
+            await loadProducts();
+            await loadCustomers();
+            await loadDevices();
+            
+            const deviceSelect = document.getElementById('order-device');
+            deviceSelect.innerHTML = '<option value="">-- Select Device --</option>' + 
+                devices.map(d => `<option value="${d.id}">${d.name} (${d.location || 'No location'})</option>`).join('');
+            
+            const customerSelect = document.getElementById('order-customer');
+            customerSelect.innerHTML = '<option value="">Walk-in Customer</option>' + 
+                customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            
+            const productsHtml = products.map(p => `
+                <div class="flex items-center space-x-2 border-b pb-2">
+                    <input type="checkbox" id="prod-${p.id}" data-id="${p.id}" data-price="${p.price}" data-name="${p.name}" onchange="updateOrderTotal()" class="w-5 h-5">
+                    <label for="prod-${p.id}" class="flex-1 font-semibold">${p.name} - $${p.price}</label>
+                    <span class="text-sm text-gray-500">Qty:</span>
+                    <input type="number" id="qty-${p.id}" min="1" value="1" class="border rounded px-2 py-1 w-16" onchange="updateOrderTotal()">
+                </div>
+            `).join('');
+            document.getElementById('order-products').innerHTML = productsHtml || '<p class="text-gray-500">No products available</p>';
+        }
+
+        function updateOrderTotal() {
+            let total = 0;
+            selectedItems = [];
+            products.forEach(p => {
+                const checkbox = document.getElementById('prod-' + p.id);
+                if (checkbox && checkbox.checked) {
+                    const qty = parseInt(document.getElementById('qty-' + p.id).value);
+                    total += parseFloat(p.price) * qty;
+                    selectedItems.push({
+                        productId: p.id,
+                        quantity: qty,
+                        price: p.price
+                    });
+                }
+            });
+            document.getElementById('order-total').textContent = total.toFixed(2);
+        }
+
+        async function loadDevices() {
+            const res = await fetch(API_URL + '/api/palm/devices');
+            const data = await res.json();
+            devices = data.devices;
+        }
+
+        async function createOrder(e) {
+            e.preventDefault();
+            
+            if (selectedItems.length === 0) {
+                alert('Please select at least one product');
+                return;
+            }
+            const customerId = document.getElementById('order-customer').value || null;
+            const customerName = customerId ? customers.find(c => c.id === customerId)?.name : 'Walk-in Customer';
+            const palmDeviceId = document.getElementById('order-device').value || null;
+            
+            const res = await fetch(API_URL + '/api/orders', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    customerId,
+                    customerName,
+                    palmDeviceId,
+                    items: selectedItems
+                })
+            });
+            
+            if (res.ok) {
+                alert('✅ Order created! Customer can now scan palm to pay on the device.');
+                showTab('orders');
+            } else {
+                alert('Failed to create order');
+            }
+        }
+
+        // Initial load
+        loadProducts();
+    </script>
+</body>
+</html>
