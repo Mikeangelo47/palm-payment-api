@@ -501,35 +501,65 @@ app.post('/api/v1/palm/verify', async (req, res) => {
   }
 });
 
+// In-memory storage for enrollment tokens (use Redis in production)
+const enrollmentTokens = new Map();
+
 // Generate enrollment QR code for unrecognized palm
 app.post('/api/v1/palm/generate-enrollment-qr', async (req, res) => {
   try {
     const { palmFeatures } = req.body;
     
     // Create temporary enrollment token
-    const enrollmentToken = require('crypto').randomBytes(32).toString('hex');
-    const enrollmentData = {
-      token: enrollmentToken,
-      palmFeatures: palmFeatures,
-      timestamp: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
-    };
+    const enrollmentToken = require('crypto').randomBytes(16).toString('hex');
     
-    // Store in temporary storage (you could use Redis or database)
-    // For now, we'll encode it in the QR code directly
-    const enrollmentUrl = `${req.protocol}://${req.get('host')}/enroll?token=${enrollmentToken}`;
+    // Store palm features temporarily (10 minute expiry)
+    enrollmentTokens.set(enrollmentToken, {
+      palmFeatures,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 10 * 60 * 1000
+    });
+    
+    // Clean up expired tokens
+    setTimeout(() => {
+      enrollmentTokens.delete(enrollmentToken);
+    }, 10 * 60 * 1000);
     
     // Return QR code data
     res.json({
       success: true,
       enrollmentToken,
-      enrollmentUrl,
-      qrCodeData: enrollmentUrl,
       expiresIn: 600 // seconds
     });
   } catch (error) {
     console.error('Error generating enrollment QR:', error);
     res.status(500).json({ success: false, error: 'Failed to generate enrollment QR' });
+  }
+});
+
+// Get enrollment data by token
+app.get('/api/v1/palm/enrollment/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    const enrollment = enrollmentTokens.get(token);
+    if (!enrollment) {
+      return res.status(404).json({ error: 'Enrollment token not found or expired' });
+    }
+    
+    // Check expiry
+    if (Date.now() > enrollment.expiresAt) {
+      enrollmentTokens.delete(token);
+      return res.status(410).json({ error: 'Enrollment token expired' });
+    }
+    
+    res.json({
+      success: true,
+      palmFeatures: enrollment.palmFeatures,
+      createdAt: enrollment.createdAt
+    });
+  } catch (error) {
+    console.error('Error fetching enrollment data:', error);
+    res.status(500).json({ error: 'Failed to fetch enrollment data' });
   }
 });
 
