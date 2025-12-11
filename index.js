@@ -462,7 +462,7 @@ app.get('/api/v1/palm/template/:userId', async (req, res) => {
 // Verify palm - returns all templates for client-side matching
 app.post('/api/v1/palm/verify', async (req, res) => {
   try {
-    const { sdkVendor, featureVersion } = req.body;
+    const { sdkVendor, featureVersion, palmFeatures } = req.body;
     
     // Get all active templates
     const templates = await prisma.palmTemplate.findMany({
@@ -498,6 +498,38 @@ app.post('/api/v1/palm/verify', async (req, res) => {
   } catch (error) {
     console.error('Palm verification error:', error);
     res.status(500).json({ success: false, error: 'Palm verification failed' });
+  }
+});
+
+// Generate enrollment QR code for unrecognized palm
+app.post('/api/v1/palm/generate-enrollment-qr', async (req, res) => {
+  try {
+    const { palmFeatures } = req.body;
+    
+    // Create temporary enrollment token
+    const enrollmentToken = require('crypto').randomBytes(32).toString('hex');
+    const enrollmentData = {
+      token: enrollmentToken,
+      palmFeatures: palmFeatures,
+      timestamp: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
+    };
+    
+    // Store in temporary storage (you could use Redis or database)
+    // For now, we'll encode it in the QR code directly
+    const enrollmentUrl = `${req.protocol}://${req.get('host')}/enroll?token=${enrollmentToken}`;
+    
+    // Return QR code data
+    res.json({
+      success: true,
+      enrollmentToken,
+      enrollmentUrl,
+      qrCodeData: enrollmentUrl,
+      expiresIn: 600 // seconds
+    });
+  } catch (error) {
+    console.error('Error generating enrollment QR:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate enrollment QR' });
   }
 });
 
