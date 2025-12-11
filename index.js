@@ -489,7 +489,7 @@ app.get('/api/v1/users/:userId/auth-history', async (req, res) => {
       skip: offset
     });
     
-    res.json(logs);
+    res.json({ logs, total: logs.length, limit, offset });
   } catch (error) {
     console.error('Error fetching auth history:', error);
     res.status(500).json({ error: 'Failed to fetch authentication history' });
