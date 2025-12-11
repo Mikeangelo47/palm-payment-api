@@ -381,6 +381,100 @@ app.post('/api/palm-devices/auth-log', async (req, res) => {
   }
 });
 
+// ============ iOS APP ENDPOINTS ============
+
+// Get single user by ID
+app.get('/api/v1/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        cards: true,
+        palmTemplates: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ user });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// Search user by displayName
+app.get('/api/v1/users/search/by-name', async (req, res) => {
+  try {
+    const { displayName } = req.query;
+    
+    if (!displayName) {
+      return res.status(400).json({ error: 'displayName is required' });
+    }
+    
+    const user = await prisma.user.findFirst({
+      where: { 
+        displayName: {
+          equals: displayName,
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        cards: true,
+        palmTemplates: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ user });
+  } catch (error) {
+    console.error('Error searching user:', error);
+    res.status(500).json({ error: 'Failed to search user' });
+  }
+});
+
+// Get palm template for user
+app.get('/api/v1/palm/template/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const template = await prisma.palmTemplate.findFirst({
+      where: { userId }
+    });
+    
+    if (!template) {
+      return res.status(404).json({ error: 'Palm template not found' });
+    }
+    
+    res.json(template);
+  } catch (error) {
+    console.error('Error fetching palm template:', error);
+    res.status(500).json({ error: 'Failed to fetch palm template' });
+  }
+});
+
+// Get user cards
+app.get('/api/v1/users/:userId/cards', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const cards = await prisma.card.findMany({
+      where: { userId }
+    });
+    
+    res.json({ cards });
+  } catch (error) {
+    console.error('Error fetching cards:', error);
+    res.status(500).json({ error: 'Failed to fetch cards' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
